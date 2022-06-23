@@ -5,6 +5,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import scipy.io.wavfile as wav
 import scipy.signal as ss
+import scipy.fft as fft
 
 def graph(t, muestra, xi, ydig, ydecim, q):
     # n0=0; deltaN=int(len(t)/1000); nf=n0+deltaN
@@ -29,12 +30,6 @@ def graph(t, muestra, xi, ydig, ydecim, q):
     # plt.tight_layout()
     # plt.show()
 
-
-    n0=0; deltaN=int(len(t)/1000); nf=n0+deltaN
-    plt.plot(t[n0:nf],muestra[n0:nf], 'g')
-    puntos=np.arange(n0,nf,1/fos)
-    plt.step(puntos, ydig[n0:nf], where='post', label='y[n]', color='b')
-
     return 0
 
 def FAA(fb, muestra, t, verbose=False):
@@ -48,21 +43,21 @@ def FAA(fb, muestra, t, verbose=False):
 
     return yout
 
-def conversor(k, filtered, deltaY):
+def conversor(k, filtered, deltaY, t, noise=False, fs=44100):
     yanalog=np.zeros(k, dtype=float)
     ydig=np.zeros(k, dtype=int)
     xi=np.zeros(k, dtype=float)
     diferencia=np.zeros(k, dtype=float)
 
     for i in range(0,k):
-        diferencia[i] = filtered[i]-yanalog[i-1] if i>0 else filtered[i]   #Sumador
-        xi[i] = xi[i-1]+diferencia[i] if i>0 else diferencia[i]            #Integrador
-        ydig[i] = 1 if xi[i]>0 else 0                                   #Cuantizador
-        yanalog[i]= deltaY if ydig[i]==1 else -deltaY                   #Realimentación   
+        diferencia[i] = filtered[i]-yanalog[i-1] if i>0 else filtered[i]    #Sumador
+        xi[i] = xi[i-1]+diferencia[i] if i>0 else diferencia[i]             #Integrador                                               #Ruido   
+        ydig[i] = 1 if xi[i]>0 else 0                                       #Cuantizador
+        yanalog[i]= deltaY if ydig[i]==1 else -deltaY                       #Realimentación
     return ydig, xi, diferencia
 
-def downsampler(out_size, q, ydigital):
-    #Decimate solo decima hasta orden 13, por lo que divido en rep decimaciones 
+def downsampler(q, ydig):
+    #ss.decimate() solo decima hasta orden 13, por lo que divido en rep decimaciones 
     # de orden 8 y una de orden res
 
     rep=int(np.log(q)/np.log(8)); res=int(q/8**rep)
@@ -76,14 +71,27 @@ def downsampler(out_size, q, ydigital):
         decimated=ss.decimate(decimated,8)
     return decimated
 
+def noiseShapping(k):
+    filtered=np.zeros(k, dtype=float)
+    yanalog=np.zeros(k, dtype=float)
+    ydig=np.zeros(k, dtype=int)
+    xi=np.zeros(k, dtype=float)
+    diferencia=np.zeros(k, dtype=float)
+    
+    ruido=np.random.random(size=k)*100
+
+    for i in range(0,k):
+        diferencia[i] = filtered[i]-yanalog[i-1] if i>0 else filtered[i]    #Sumador
+        xi[i] = xi[i-1]+diferencia[i] if i>0 else diferencia[i]             #Integrador  
+        ydig[i] = 1 if xi[i]+ruido[i]>0 else 0                              #Cuantizador
+        yanalog[i]= deltaY if ydig[i]==1 else -deltaY                       #Realimentación
+    return ydig, ruido   
 
 fb=22000; fs=44100; q=4; fos=fs*q
 
-archivo = 'muestra.wav'
+archivo = 'SigmaDelta\muestra.wav'
 fdata, data = wav.read(archivo)
-
-deltaY = 1
-deltaT = 1/fos 
+deltaY = 1; deltaT = 1/fos 
 
 tfinal=(len(data)/fdata)/q
 t = np.arange(0,tfinal,deltaT)
@@ -93,22 +101,22 @@ filtered = FAA(fb, data/np.max(data), t, verbose=False)
 k=len(filtered)
 
 #Conversor
-ydig, xi, diff = conversor(k, filtered, deltaY)
+ydig, xi, diff= conversor(k, filtered, deltaY, t, noise=False, fs=fs)
 
 #DownSampler
 ysalida=np.zeros(int(k/q))
-ysalida = downsampler(out_size=int(k/q), q=q, ydigital=ydig)
+ysalida = downsampler(q=q, ydig=ydig)
 
 n0=0; deltaN=int(len(t)/500); nf=n0+deltaN
 puntos=(np.arange(n0+1,nf+1,1))/fos
 
 #Grafico entrada-salida
 # plt.plot(t[n0:nf],filtered[n0:nf], 'g', label= "x(t)")
-# plt.step(puntos, ydig[n0:nf]*1.7-0.85, where='mid', color='k', alpha=0.2, label= "y[n]")
+# plt.step(puntos, (ydig[n0:nf]-0.5)*2, where='mid', color='k', alpha=0.2, label= "y[n]")
 # plt.legend(loc='lower right')
 # plt.show()
 
-#Grafico I/O+integrador y sumador 
+# Grafico I/O+integrador y sumador 
 # plt.plot(t[n0:nf],filtered[n0:nf], 'green', label= "x(t)")
 # plt.step(t[n0:nf],xi[n0:nf], 'orange', where='pre', label= "xi(n)")
 # plt.step(t[n0:nf],diff[n0:nf], 'blue', where='pre', label= "Sum(n)")
@@ -116,7 +124,7 @@ puntos=(np.arange(n0+1,nf+1,1))/fos
 # plt.legend()
 # plt.show()
 
-#Grafico Otput+decimador
+# Grafico Output+decimador
 # puntos=(np.arange(n0,nf,1))/fos
 # plt.plot(t[n0:nf],filtered[n0:nf], 'green', label= "x(t)")
 # plt.step(puntos, (ydig[n0:nf]-0.5)*1.7, where='mid', color='k', alpha=0.2, label= "y[n]")
@@ -125,4 +133,13 @@ puntos=(np.arange(n0+1,nf+1,1))/fos
 # plt.legend(loc='upper right')
 # plt.show()
 
-#graph(t=t, muestra=filtered, xi=xi, ydig=ydig, ydecim=ysalida, q=fos/fs)
+# FFT
+noisydata, ruido= noiseShapping(k)   # Señal con ruido
+data_fft = 2.0 / k * np.abs(fft.fft(noisydata)[1:k // 2])               # Calculamos el espectro
+noise_fft = 2.0 / k * np.abs(fft.fft(ruido)[1:k // 2])                  # Calculamos el espectro
+freqs = fft.fftfreq(k, 1 / fos)[1:k // 2]
+#plt.plot(freqs, data_fft, 'g', label= "x(f)")
+#plt.plot(freqs, noise_fft, 'r', label= "noise(f)")
+plt.plot(freqs,data_fft/noise_fft, label="NTF")                                            # Espectro
+plt.legend()
+plt.show() 
