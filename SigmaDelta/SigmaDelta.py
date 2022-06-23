@@ -72,19 +72,19 @@ def downsampler(q, ydig):
     return decimated
 
 def noiseShapping(k):
-    filtered=np.zeros(k, dtype=float)
-    yanalog=np.zeros(k, dtype=float)
-    ydig=np.zeros(k, dtype=int)
-    xi=np.zeros(k, dtype=float)
-    diferencia=np.zeros(k, dtype=float)
+    yanalog=np.zeros(k)
+    ydig=np.zeros(k)
+    xi=np.zeros(k)
+    diferencia=np.zeros(k)
     
-    ruido=np.random.random(size=k)*100
+    ruido=np.random.random(size=k)-0.5
+    # print(ruido)
 
-    for i in range(0,k):
-        diferencia[i] = filtered[i]-yanalog[i-1] if i>0 else filtered[i]    #Sumador
+    for i in range(k):
+        diferencia[i] = -yanalog[i-1] if i>0 else 0    #Sumador
         xi[i] = xi[i-1]+diferencia[i] if i>0 else diferencia[i]             #Integrador  
-        ydig[i] = 1 if xi[i]+ruido[i]>0 else 0                              #Cuantizador
-        yanalog[i]= deltaY if ydig[i]==1 else -deltaY                       #Realimentación
+        ydig[i] = xi[i]+ruido[i]                                            #Cuantizador
+        yanalog[i]= ydig[i]                                                 #Realimentación
     return ydig, ruido   
 
 fb=22000; fs=44100; q=4; fos=fs*q
@@ -111,35 +111,38 @@ n0=0; deltaN=int(len(t)/500); nf=n0+deltaN
 puntos=(np.arange(n0+1,nf+1,1))/fos
 
 #Grafico entrada-salida
-# plt.plot(t[n0:nf],filtered[n0:nf], 'g', label= "x(t)")
-# plt.step(puntos, (ydig[n0:nf]-0.5)*2, where='mid', color='k', alpha=0.2, label= "y[n]")
-# plt.legend(loc='lower right')
-# plt.show()
+plt.plot(t[n0:nf],filtered[n0:nf], 'g', label= "x(t)")
+plt.step(puntos, (ydig[n0:nf]-0.5)*2, where='mid', color='k', alpha=0.2, label= "y[n]")
+plt.legend(loc='lower right')
+plt.show()
 
 # Grafico I/O+integrador y sumador 
-# plt.plot(t[n0:nf],filtered[n0:nf], 'green', label= "x(t)")
-# plt.step(t[n0:nf],xi[n0:nf], 'orange', where='pre', label= "xi(n)")
-# plt.step(t[n0:nf],diff[n0:nf], 'blue', where='pre', label= "Sum(n)")
-# plt.step(puntos, (ydig[n0:nf]-0.5)*4, where='pre', color='k', alpha=0.2, label= "y[n]")
-# plt.legend()
-# plt.show()
+plt.plot(t[n0:nf],filtered[n0:nf], 'green', label= "x(t)")
+plt.step(t[n0:nf],xi[n0:nf], 'orange', where='pre', label= "xi(n)")
+plt.step(t[n0:nf],diff[n0:nf], 'blue', where='pre', label= "Sum(n)")
+plt.step(puntos, (ydig[n0:nf]-0.5)*4, where='pre', color='k', alpha=0.2, label= "y[n]")
+plt.legend()
+plt.show()
 
 # Grafico Output+decimador
-# puntos=(np.arange(n0,nf,1))/fos
-# plt.plot(t[n0:nf],filtered[n0:nf], 'green', label= "x(t)")
-# plt.step(puntos, (ydig[n0:nf]-0.5)*1.7, where='mid', color='k', alpha=0.2, label= "y[n]")
-# plt.step(puntos*fos/fs, (ysalida[n0:nf]-0.5)*1.7, where='mid', color='blue', alpha=0.5, label= "Decimada")
-# plt.xlim(0,0.001)
-# plt.legend(loc='upper right')
-# plt.show()
+puntos=(np.arange(n0,nf,1))/fos
+plt.plot(t[n0:nf],filtered[n0:nf], 'green', label= "x(t)")
+plt.step(puntos, (ydig[n0:nf]-0.5)*1.7, where='mid', color='k', alpha=0.2, label= "y[n]")
+plt.step(puntos*fos/fs, (ysalida[n0:nf]-0.5)*1.7, where='mid', color='blue', alpha=0.5, label= "Decimada")
+plt.xlim(0,0.001)
+plt.legend(loc='upper right')
+plt.show()
 
 # FFT
 noisydata, ruido= noiseShapping(k)   # Señal con ruido
-data_fft = 2.0 / k * np.abs(fft.fft(noisydata)[1:k // 2])               # Calculamos el espectro
-noise_fft = 2.0 / k * np.abs(fft.fft(ruido)[1:k // 2])                  # Calculamos el espectro
+noiseout_fft = 2.0 / k * np.abs(fft.fft(noisydata)[1:k // 2])               # Espectro salida
+noise_fft = 2.0 / k * np.abs(fft.fft(ruido)[1:k // 2])                      # Espectro ruido
 freqs = fft.fftfreq(k, 1 / fos)[1:k // 2]
-#plt.plot(freqs, data_fft, 'g', label= "x(f)")
-#plt.plot(freqs, noise_fft, 'r', label= "noise(f)")
-plt.plot(freqs,data_fft/noise_fft, label="NTF")                                            # Espectro
+plt.plot(freqs, noiseout_fft, 'g', label= "Noise(f)")                           # Plot espectro salida
+plt.legend()
+plt.show()
+
+plt.title("NTF")
+plt.plot(freqs,noiseout_fft/noise_fft, label="NTF")                         # Plot transferencia
 plt.legend()
 plt.show() 
