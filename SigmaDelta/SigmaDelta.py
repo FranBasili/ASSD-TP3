@@ -134,15 +134,15 @@ plt.legend(loc='upper right')
 plt.show()
 
 # FFT
-noisydata, ruido= noiseShapping(k)   # Señal con ruido
-noiseout_fft = 2.0 / k * np.abs(fft.fft(noisydata)[1:k // 2])               # Espectro salida
-noise_fft = 2.0 / k * np.abs(fft.fft(ruido)[1:k // 2])                      # Espectro ruido
+noisydata, ruido= noiseShapping(k)                              # Señal con ruido
+noiseout_fft = 2.0 / k * np.abs(fft.fft(noisydata)[1:k // 2])   # Espectro salida
+noise_fft = 2.0 / k * np.abs(fft.fft(ruido)[1:k // 2])          # Espectro ruido
 freqs = fft.fftfreq(k, 1 / fos)[1:k // 2]
-plt.plot(freqs, noiseout_fft, 'g', label= "Noise(f)")                           # Plot espectro salida
+plt.plot(freqs, noiseout_fft, 'g', label= "Noise(f)")           # Plot espectro salida
 plt.legend()
 plt.show()
 
 plt.title("NTF")
-plt.plot(freqs,noiseout_fft/noise_fft, label="NTF")                         # Plot transferencia
+plt.plot(freqs,noiseout_fft/noise_fft, label="NTF")             # Plot transferencia
 plt.legend()
 plt.show() 
